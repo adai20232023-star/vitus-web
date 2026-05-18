@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>鸭梨不山大 · 梨梨与鸭鸭</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/addons/p5.sound.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ml5@0.12.2/dist/ml5.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', 'Helvetica Neue', sans-serif;
+      background: #FFFDF9;
+      min-height: 100vh;
+      color: #5e4b3a;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .menu {
+      background: rgba(255, 248, 240, 0.96);
+      backdrop-filter: blur(8px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      padding: 0.8rem 2rem;
+      border-bottom: 1px solid #ffe0d0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .logo {
+      font-size: 1.4rem;
+      font-weight: bold;
+      background: linear-gradient(135deg, #cfa392, #b87a64);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .menu ul { display: flex; gap: 2rem; list-style: none; flex-wrap: wrap; }
+    .menu li {
+      font-size: 1.1rem;
+      font-weight: 500;
+      padding: 0.5rem 1rem;
+      cursor: pointer;
+      border-radius: 40px;
+      transition: 0.2s;
+      color: #b97f6e;
+    }
+    .menu li:hover, .menu li.active { background: #fae6da; color: #8c5a48; }
+
+    .music-icon {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 48px;
+      height: 48px;
+      background: #fef4ea;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      z-index: 200;
+      transition: 0.2s;
+      border: 1px solid #cfa392;
+    }
+    .music-icon:hover { transform: scale(1.05); background: #fae6da; }
+
+    .tab-content { display: none; animation: fadeIn 0.3s; }
+    .tab-content.active { display: block; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    main {
+      flex: 1;
+      max-width: 1300px;
+      margin: 2rem auto;
+      padding: 0 1.5rem;
+      width: 100%;
+    }
+
+    #home {
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      padding: 0;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: calc(100vh - 200px);
+    }
+    #home::before {
+      content: "";
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background-image: url("鸭梨首页图.png");
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      opacity: 0.22;
+      z-index: -2;
+      pointer-events: none;
+    }
+
+    .tab-content:not(#home) {
+      background-image: url("11.png");
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      position: relative;
+      border-radius: 28px;
+      margin-bottom: 30px;
+    }
+    .tab-content:not(#home)::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(255, 253, 249, 0.88);
+      border-radius: 28px;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .tab-content:not(#home) > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .welcome-box,
+    .story-container,
+    .free-buttons,
+    #freeCanvasContainer,
+    .book-container,
+    .knowledge-video,
+    .knowledge-list,
+    .card-3d-container,
+    .message-wall,
+    .temp-vertical {
+      background: rgba(255, 255, 255, 0.94);
+      border-radius: 28px;
+      border: 1px solid #f0cfbd;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+      backdrop-filter: blur(2px);
+      padding: 1.5rem;
+    }
+
+    .welcome-box {
+      text-align: center;
+      max-width: 1000px;
+      margin: 0 auto;
+      background: rgba(255, 255, 255, 0.96);
+    }
+    .welcome-box h1 { font-size: 2.2rem; color: #cfa392; }
+    .quote-of-day {
+      margin: 1rem auto;
+      background: #fef4ea;
+      display: inline-block;
+      padding: 0.5rem 1.5rem;
+      border-radius: 40px;
+      font-size: 0.9rem;
+      font-style: italic;
+    }
+    .mode-selector {
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      margin-top: 2rem;
+      flex-wrap: wrap;
+    }
+    .mode-btn {
+      background: #fae6da;
+      border: none;
+      padding: 1.2rem 1.8rem;
+      border-radius: 2rem;
+      font-size: 1.2rem;
+      cursor: pointer;
+      min-width: 200px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+    }
+    .mode-btn:hover { background: #e2c2b2; transform: scale(1.02); }
+
+    .comic-stage {
+      width: 100%;
+      height: 500px;
+      position: relative;
+      background: #f7f3eb;
+      border-radius: 1.5rem;
+      overflow: hidden;
+      cursor: pointer;
+    }
+    .comic-bg { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .bubble-lili, .bubble-yaya {
+      position: absolute;
+      bottom: 22px;
+      background: rgba(255,255,255,0.96);
+      padding: 10px 16px;
+      border-radius: 18px;
+      font-size: 14px;
+      max-width: 42%;
+      display: none;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .bubble-lili { left: 22px; }
+    .bubble-yaya { right: 22px; }
+    .comic-tip {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.6);
+      color: white;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      pointer-events: none;
+    }
+    .continue-overlay { position: absolute; bottom: 30px; left: 0; right: 0; text-align: center; z-index: 40; }
+    .continue-btn {
+      background: #cfa392;
+      color: white;
+      border: none;
+      padding: 0.5rem 1.5rem;
+      border-radius: 40px;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    #continueAfterInteractionBtn {
+      position: fixed;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 200;
+      display: none;
+      background: #cfa392;
+      padding: 10px 24px;
+      border-radius: 60px;
+      font-size: 1rem;
+    }
+    .ending-board {
+      position: absolute;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255,252,247,0.2);
+      backdrop-filter: blur(2px);
+      z-index: 20;
+    }
+    .ending-card {
+      background: white;
+      border-radius: 2rem;
+      padding: 1.5rem;
+      text-align: center;
+      max-width: 90%;
+      width: 500px;
+    }
+    .story-progress { text-align: center; margin-top: 0.8rem; font-size: 0.8rem; color: #b97f6e; }
+
+    .free-buttons { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    .free-interact-btn {
+      background: #cfa392;
+      border: none;
+      color: white;
+      padding: 0.5rem 1.2rem;
+      border-radius: 40px;
+      cursor: pointer;
+    }
+    #freeCanvasContainer { min-height: 300px; text-align: center; padding: 1rem; }
+
+    .book-container { perspective: 1800px; max-width: 760px; margin: 0 auto; }
+    .book { position: relative; width: 100%; height: 520px; transform-style: preserve-3d; }
+    .book-cover, .book-inner {
+      position: absolute;
+      inset: 0;
+      border-radius: 16px;
+      backface-visibility: hidden;
+      box-shadow: 0 12px 28px rgba(0,0,0,0.2);
+    }
+    .book-cover {
+      transform-origin: left center;
+      background: linear-gradient(145deg, #b58b5b, #8b5a2b);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2;
+      transition: transform 0.85s cubic-bezier(0.2,0.9,0.4,1.1);
+      border-left: 16px solid #5a3a1a;
+    }
+    .book-cover-inner {
+      background: rgba(250,245,220,0.95);
+      padding: 1.5rem;
+      border-radius: 16px;
+      width: 80%;
+      text-align: center;
+    }
+    .book-inner {
+      transform: rotateY(180deg);
+      background: #fef3e2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1;
+      transition: transform 0.85s cubic-bezier(0.2,0.9,0.4,1.1);
+      padding: 1rem;
+    }
+    .book-container.open .book-cover { transform: rotateY(-165deg); }
+    .book-container.open .book-inner { transform: rotateY(0deg); }
+    .oracle-input {
+      width: 260px;
+      padding: 10px;
+      border-radius: 40px;
+      border: 1px solid #f0cfbd;
+      text-align: center;
+      margin-top: 12px;
+    }
+    .oracle-result {
+      background: white;
+      border-radius: 24px;
+      padding: 1.2rem;
+      font-size: 1.2rem;
+      line-height: 1.5;
+      min-height: 140px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .flip-page-layer { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
+    .flip-page {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background: #fff9ef;
+      transform-origin: left center;
+      opacity: 0;
+      animation: pageFlipFast 0.1s ease forwards;
+    }
+    @keyframes pageFlipFast {
+      0% { transform: rotateY(0deg); opacity: 0.9; }
+      100% { transform: rotateY(-170deg); opacity: 0; }
+    }
+
+    .knowledge-layout {
+      display: flex;
+      gap: 30px;
+      flex-wrap: wrap;
+    }
+    .knowledge-left { flex: 2; min-width: 240px; }
+    .knowledge-video { margin-bottom: 1.5rem; text-align: center; }
+    .knowledge-video iframe {
+      width: 100%;
+      max-width: 560px;
+      height: 315px;
+      border-radius: 1rem;
+    }
+    .knowledge-list { display: grid; gap: 1rem; }
+    .knowledge-card {
+      background: #fffcf7;
+      border-left: 6px solid #cfa392;
+      padding: 0.8rem 1rem;
+      border-radius: 1rem;
+      font-size: 0.9rem;
+    }
+    .temp-vertical {
+      flex: 0.9;
+      min-width: 200px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: none;
+      box-shadow: none;
+      backdrop-filter: none;
+      padding: 0.5rem;
+    }
+    .temp-vertical label {
+      font-size: 1.2rem;
+      font-weight: 500;
+      margin-bottom: 12px;
+      color: #b87a64;
+    }
+    .temp-slider-wrapper {
+      width: 100%;
+      padding: 10px 0;
+    }
+    input[type=range].temp-slider {
+      -webkit-appearance: none;
+      width: 80%;
+      height: 12px;
+      background: linear-gradient(90deg, #42a5f5, #ffb74d, #ef5350);
+      border-radius: 10px;
+      outline: none;
+      margin: 20px 0;
+    }
+    input[type=range].temp-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 26px;
+      height: 26px;
+      background: white;
+      border-radius: 50%;
+      border: 2px solid #cfa392;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      cursor: pointer;
+      transition: 0.1s;
+    }
+    input[type=range].temp-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
+    }
+    .temp-value {
+      font-size: 1.8rem;
+      font-weight: bold;
+      color: #cfa392;
+      margin: 8px 0;
+    }
+    #tempResponse {
+      background: rgba(255,255,240,0.8);
+      border-radius: 48px;
+      padding: 10px 18px;
+      font-size: 1rem;
+      margin-top: 12px;
+      font-weight: 500;
+      backdrop-filter: blur(2px);
+    }
+
+    .split-card-layout {
+      display: flex;
+      gap: 30px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .card-display-area {
+      flex: 1.5;
+      min-width: 300px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+    }
+    .card-wrapper {
+      width: 320px;
+      height: 460px;
+      perspective: 1000px;
+      margin-bottom: 20px;
+    }
+    .card3d {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      transform-style: preserve-3d;
+    }
+    .card-face {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      border-radius: 24px;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 1.2rem;
+    }
+    .card-back {
+      background: url("卡片封面.png") center/cover no-repeat;
+      transform: rotateY(0deg);
+    }
+    .card-front {
+      background: #fffcf7;
+      transform: rotateY(180deg);
+      overflow-y: auto;
+      justify-content: center;
+    }
+    .story-title {
+      font-size: 1.4rem;
+      font-weight: bold;
+      color: #cfa392;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+    .story-text {
+      font-size: 0.95rem;
+      line-height: 1.5;
+      text-align: center;
+      max-height: 280px;
+      overflow-y: auto;
+      padding: 0 8px;
+    }
+    .draw-btn-area {
+      margin-top: 16px;
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+      z-index: 10;
+    }
+    .draw-btn-area .continue-btn, .save-card-btn {
+      background: #cfa392;
+      color: white;
+      border: none;
+      padding: 10px 24px;
+      border-radius: 40px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: 0.2s;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    .draw-btn-area .continue-btn:hover, .save-card-btn:hover {
+      background: #b87a64;
+      transform: translateY(-2px);
+    }
+    .save-card-btn { background: #b0c4a2; }
+    .prescription-area {
+      flex: 1;
+      min-width: 220px;
+      background: #fef4ea;
+      border-radius: 28px;
+      padding: 1.2rem;
+      text-align: center;
+      align-self: center;
+    }
+    .prescription-area h3 { font-size: 1.4rem; color: #b87a64; margin-bottom: 1rem; }
+    .prescription-item { font-size: 1rem; margin: 1rem 0; background: white; border-radius: 40px; padding: 8px; }
+
+    .bubble-cloud {
+      position: relative;
+      width: 100%;
+      height: 460px;
+      background: #fef9f0;
+      border-radius: 32px;
+      overflow: hidden;
+      margin-bottom: 20px;
+      border: 1px solid #ffe0a3;
+    }
+    .floating-bubble {
+      position: absolute;
+      background: white;
+      border-radius: 60px;
+      padding: 6px 16px;
+      font-size: 0.9rem;
+      border: 1px solid #cfa392;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      max-width: 260px;
+      word-break: break-word;
+      animation: floatUp linear forwards;
+      cursor: default;
+    }
+    @keyframes floatUp {
+      0% { transform: translateY(0) scale(0.9); opacity: 0; }
+      10% { opacity: 1; transform: translateY(-8px) scale(1); }
+      90% { opacity: 1; transform: translateY(-85%) scale(1); }
+      100% { transform: translateY(-100%) scale(0.95); opacity: 0; visibility: hidden; }
+    }
+    .message-input-area {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+    .message-input {
+      flex: 1;
+      max-width: 400px;
+      padding: 8px 16px;
+      border-radius: 60px;
+      border: 1px solid #f0cfbd;
+    }
+    .submit-message { background: #cfa392; color: white; border: none; padding: 8px 20px; border-radius: 60px; cursor: pointer; }
+
+    .footer-credit {
+      text-align: center;
+      font-size: 0.7rem;
+      color: #b97f6e;
+      padding: 1rem;
+      border-top: 1px solid #f0cfbd;
+      background: rgba(255, 248, 240, 0.8);
+      width: 100%;
+    }
+
+    @media (max-width: 800px) {
+      .knowledge-layout { flex-direction: column; }
+      .temp-vertical { width: 100%; margin-top: 1rem; }
+      .split-card-layout { flex-direction: column; align-items: stretch; }
+      .prescription-area { margin-top: 20px; }
+      .menu ul { gap: 1rem; flex-wrap: wrap; justify-content: center; }
+    }
+
+    .tab-content > h2,
+    .tab-content > h2:first-child {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+<nav class="menu">
+  <div class="logo">鸭梨不山大</div>
+  <ul>
+    <li data-tab="home" class="active">首页</li>
+    <li data-tab="oracle">答案之书</li>
+    <li data-tab="knowledge">疗愈知识</li>
+    <li data-tab="card">心灵抽卡</li>
+    <li data-tab="message">留言墙</li>
+  </ul>
+</nav>
+<div id="musicIcon" class="music-icon">🔇</div>
+
+<main>
+  <section id="home" class="tab-content active">
+    <div class="welcome-box">
+      <h1>🌸 梨梨与鸭鸭的治愈探险</h1>
+      <div class="quote-of-day" id="dailyQuote">加载中...</div>
+      <p>选择一种方式，开始你的心灵之旅</p>
+      <div class="mode-selector">
+        <button id="modeStoryBtn" class="mode-btn">📖 故事模式</button>
+        <button id="modeFreeBtn" class="mode-btn">🎮 自由探索</button>
+      </div>
+    </div>
+  </section>
+
+  <section id="storyMode" class="tab-content">
+    <div class="story-container">
+      <div class="comic-stage" id="comicStage">
+        <img id="comicBgImg" class="comic-bg" src="">
+        <div class="bubble-lili" id="bLili"></div>
+        <div class="bubble-yaya" id="bYaya"></div>
+        <div class="comic-tip" id="comicTip"></div>
+        <div class="continue-overlay" id="continueOverlay" style="display:none;">
+          <button id="continueSceneBtn" class="continue-btn">➡️ 继续</button>
+        </div>
+        <div class="ending-board" id="endingBoard">
+          <div class="ending-card">
+            <h3>❤️ 故事结束</h3>
+            <p>谢谢你和梨梨、鸭鸭一起走到这里。</p>
+            <div class="ending-actions">
+              <button id="restartStoryBtn" class="continue-btn">重新体验</button>
+              <button id="goToFreeBtn" class="continue-btn">自由探索</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <button id="continueAfterInteractionBtn" style="display: none;">✅ 完成交互，继续故事</button>
+      <div class="story-progress" id="storyProgress">场景 1 / 33</div>
+    </div>
+  </section>
+
+  <section id="freeMode" class="tab-content">
+    <div class="free-buttons">
+      <button class="free-interact-btn" data-interaction="1">吹蒲公英</button>
+      <button class="free-interact-btn" data-interaction="2">拨毛线琴弦</button>
+      <button class="free-interact-btn" data-interaction="3">乱码开花</button>
+      <button class="free-interact-btn" data-interaction="4">海浪冲烦恼</button>
+    </div>
+    <div id="freeCanvasContainer"><p>点击上方按钮，打开疗愈小游戏</p></div>
+  </section>
+
+  <section id="oracle" class="tab-content">
+    <div class="book-container" id="bookContainer">
+      <div class="book">
+        <div class="book-cover">
+          <div class="book-cover-inner">
+            <h3>📖 答案之书</h3>
+            <p>写下你的问题</p>
+            <input type="text" id="oracleInput" class="oracle-input" placeholder="例如：明天会更好吗？">
+            <button id="askOracleBtn" class="oracle-btn" style="margin-top:12px;">翻开答案</button>
+          </div>
+        </div>
+        <div class="book-inner">
+          <div class="oracle-result-panel">
+            <div id="oracleResult" class="oracle-result"></div>
+            <div class="share-buttons" id="oracleShareButtons" style="display:none; margin-top:12px;">
+              <button id="copyOracleBtn">复制答案</button>
+              <button id="saveOracleBtn">保存图片</button>
+              <button id="resetOracleBtn" class="oracle-restart">再问一次</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="knowledge" class="tab-content">
+    <div class="knowledge-layout">
+      <div class="knowledge-left">
+        <div class="knowledge-video">
+          <iframe src="https://player.bilibili.com/player.html?bvid=BV19XB5BoEPU&page=1&high_quality=1" frameborder="0" allowfullscreen></iframe>
+          <p>正念呼吸练习</p>
+        </div>
+        <div class="knowledge-list" id="knowledgeList"></div>
+        <button id="refreshKnowledge" class="continue-btn" style="margin-top:1rem;">换一批知识</button>
+      </div>
+      <div class="temp-vertical">
+        <label>🌡️ 情绪温度计</label>
+        <div class="temp-slider-wrapper">
+          <input type="range" id="tempSlider" class="temp-slider" min="0" max="100" value="30">
+        </div>
+        <div class="temp-value" id="tempValue">30°</div>
+        <div id="tempResponse"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="card" class="tab-content">
+    <div class="split-card-layout">
+      <div class="card-display-area">
+        <div class="card-wrapper"><div id="card3d" class="card3d"></div></div>
+        <div class="draw-btn-area">
+          <button id="drawCard3DBtn" class="continue-btn">✨ 抽一张卡</button>
+          <button id="saveCardBtn" class="save-card-btn" style="display:none;">💾 保存卡片</button>
+        </div>
+        <div id="drawResult" class="draw-result"></div>
+      </div>
+      <div class="prescription-area">
+        <h3>🍃 今日心灵处方</h3>
+        <div class="prescription-item"><span>✅ 宜：</span> <span id="doText">接纳不完美</span></div>
+        <div class="prescription-item"><span>❌ 不宜：</span> <span id="dontText">自我攻击</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="message" class="tab-content">
+    <div class="message-wall">
+      <h2>💬 留言墙 · 暖心气泡</h2>
+      <div id="bubbleCloud" class="bubble-cloud"></div>
+      <div class="message-input-area">
+        <input type="text" id="messageInput" class="message-input" placeholder="分享你的心情...">
+        <button id="submitMessage" class="submit-message">放飞</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="footer-credit">本小站参考正向心理学、正念减压疗法等研究，旨在提供轻松的情绪调节体验。所有内容不替代专业心理咨询。</div>
+
+<script>
+// ========== 图片路径：相对路径 ==========
+const COMIC_BASE_PATH = "";
+const getBgPath = (baseName) => {
+  if (baseName.includes('.')) return COMIC_BASE_PATH + baseName;
+  if (baseName === "4" || baseName === "4-1") return COMIC_BASE_PATH + baseName + ".jpg";
+  return COMIC_BASE_PATH + baseName + ".png";
+};
+
+// ========== 漫画故事（完整） ==========
+const comicStory = [
+  { bg: getBgPath("1"), tip: "点击继续" }, { bg: getBgPath("2"), tip: "点击继续" }, { bg: getBgPath("3"), tip: "点击继续" },
+  { bg: getBgPath("4"), speaker: "lili", text: "哇哦……你是鸭鸭还是热气球？你的肚子也太大了吧！" },
+  { bg: getBgPath("4"), speaker: "yaya", text: "都不是……我只是吞了太多“不开心”。\n\n有人说我慢得像乌龟，有人说我笨手笨脚，还有我自己半夜胡思乱想的那些话……" },
+  { bg: getBgPath("4"), speaker: "yaya", text: "它们全堵在肚子里，一天比一天胀。\n\n呜……我好想放个“情绪屁”，可是放不出来。" },
+  { bg: getBgPath("4"), speaker: "lili", text: "噗——情绪屁！你这鸭鸭还挺有幽默感嘛。" },
+  { bg: getBgPath("5"), speaker: "lili", text: "不过呢，我听说不开心的事就像蒲公英种子，看着粘人，其实轻轻一吹就能飞走。" },
+  { bg: getBgPath("5"), speaker: "lili", text: "你看那边，有几株蒲公英，要不要试试？" },
+  { bg: getBgPath("5"), interaction: 1, tip: "🦆 鸭鸭：吹……吹走？那我该怎么做？\n\n🍐 梨梨：你用鼠标（或手指）轻轻扫过蒲公英就好啦。那些烦恼字词会跟着绒毛一起逃跑哦。" },
+  { bg: getBgPath("4-1"), speaker: "yaya", text: "诶！真的飞走了！虽然肚子还鼓鼓的，但好像没那么紧了。" },
+  { bg: getBgPath("4-1"), speaker: "yaya", text: "而且……那些字飞走的时候，我竟然觉得它们有点好笑。" },
+  { bg: getBgPath("4-1"), speaker: "lili", text: "对嘛！有些压力就像蒲公英种子，看着沉，其实轻飘飘。" },
+  { bg: getBgPath("4-1"), speaker: "lili", text: "它们只是路过的话，不是你身体里长出来的刺。" },
+  { bg: getBgPath("4"), speaker: "lili", text: "不过……你刚才说还有“乱成一团的念头”?" },
+  { bg: getBgPath("4"), speaker: "yaya", text: "嗯……比如我总想“万一明天更糟怎么办”“万一没人喜欢我怎么办”……" },
+  { bg: getBgPath("9"), speaker: "yaya", text: "这些想法像一团乱毛线，越缠越紧，理不出头绪。" },
+  { bg: getBgPath("9"), interaction: 2, tip: "🍐 梨梨：你看！这里刚好有一团迷路的毛线。我们来玩个游戏——你对着摄像头挥挥手，用手势把线拨开。" },
+  { bg: getBgPath("4-1"), speaker: "yaya", text: "哇！原来乱糟糟的东西，只要动手拨一拨，就能变整齐！" },
+  { bg: getBgPath("4-1"), speaker: "lili", text: "乱不是你的错，你也不是那团乱线。" },
+  { bg: getBgPath("4-1"), speaker: "lili", text: "你只要愿意伸出手、轻轻拨一下，哪怕只理顺一根，心里就会松一口气。" },
+  { bg: getBgPath("4-1"), speaker: "yaya", text: "可是……有时候我心里会突然冒出好多好多看不懂的字母和符号，\n\n像电脑死机时的全屏乱码，吵得我脑袋嗡嗡响。" },
+  { bg: getBgPath("11"), interaction: 3, tip: "🍐 梨梨：那些乱码就在这儿。你试着点击其中几个特别吵的字母，它们会变红、变大，然后……噗！变成花哦。" },
+  { bg: getBgPath("11"), speaker: "yaya", text: "太神奇了！那些乱七八糟的字母……居然变成了花！" },
+  { bg: getBgPath("11"), speaker: "yaya", text: "而且花朵看起来好温柔，好像在说“没事啦”。" },
+  { bg: getBgPath("4"), speaker: "lili", text: "因为情绪本身不是垃圾，它们只是还没找到形状。" },
+  { bg: getBgPath("4"), speaker: "lili", text: "当你愿意看着它们、碰碰它们，它们就会变成你意想不到的漂亮东西。" },
+  { bg: getBgPath("4"), speaker: "yaya", text: "其实……我心里还有一句话，一直没敢说出来，怕被人看见。" },
+  { bg: getBgPath("7"), speaker: "lili", text: "那我们来做一个约定，就让海水冲走烦恼吧！" },
+  { bg: getBgPath("7"), speaker: "yaya", text: "我要把烦恼写在沙滩上，大声喊出来。" },
+  { bg: getBgPath("7"), interaction: 4, tip: "🍐 梨梨：海浪听到声音就会涌上来，把字冲得干干净净。" },
+  { bg: getBgPath("8"), speaker: "yaya", text: "呼——————真的……全都不见了。肚子不胀了，脑袋也不嗡嗡响了。" },
+  { bg: getBgPath("8"), speaker: "lili", text: "因为那些烦恼终于被听见和看见了呀。" },
+  { bg: getBgPath("8"), speaker: "yaya", text: "梨梨，谢谢你陪我做了这些小事。" },
+  { bg: getBgPath("8"), speaker: "yaya", text: "我吞了太多坏情绪，都忘了自己原本长什么样。" },
+  { bg: getBgPath("8"), speaker: "lili", text: "现在你记得啦，你是一只正常、可爱、会放“情绪屁”的鸭鸭！" },
+  { bg: getBgPath("8"), speaker: "lili", text: "而且，下次肚子再鼓起来，你就知道怎么办了：吹一吹、拨一拨、点一点、喊一喊。" },
+  { bg: getBgPath("8"), speaker: "lili", text: "哦对了，还有 抱一抱。" },
+  { bg: getBgPath("10"), speaker: "yaya", text: "那……现在可以抱一下吗？" }
+];
+
+// ========== 故事模式状态 ==========
+let currentComicIndex = 0;
+let waitingForInteraction = false;
+const comicStageDiv = document.getElementById('comicStage');
+const comicBgImg = document.getElementById('comicBgImg');
+const bLili = document.getElementById('bLili');
+const bYaya = document.getElementById('bYaya');
+const comicTip = document.getElementById('comicTip');
+const continueOverlay = document.getElementById('continueOverlay');
+const continueSceneBtn = document.getElementById('continueSceneBtn');
+const continueAfterInteractionBtn = document.getElementById('continueAfterInteractionBtn');
+const storyProgressSpan = document.getElementById('storyProgress');
+const endingBoard = document.getElementById('endingBoard');
+const restartStoryBtn = document.getElementById('restartStoryBtn');
+const goToFreeBtn = document.getElementById('goToFreeBtn');
+
+function setBackground(imgUrl) { comicBgImg.src = imgUrl; comicBgImg.style.display = 'block'; }
+function showBubble(text, speaker) {
+  const el = speaker === 'yaya' ? bYaya : bLili;
+  const other = speaker === 'yaya' ? bLili : bYaya;
+  other.style.display = 'none';
+  el.innerHTML = text.replace(/\n/g,'<br>');
+  el.style.display = 'block';
+}
+function hideBubble() { bLili.style.display = 'none'; bYaya.style.display = 'none'; }
+function stopCurrentInteraction() { waitingForInteraction = false; continueAfterInteractionBtn.style.display = 'none'; }
+function resetUI() { hideBubble(); continueOverlay.style.display = 'none'; endingBoard.style.display = 'none'; continueAfterInteractionBtn.style.display = 'none'; comicTip.innerText = ''; }
+function showComicFrame() {
+  const frame = comicStory[currentComicIndex];
+  if (!frame) return;
+  endingBoard.style.display = 'none';
+  setBackground(frame.bg);
+  if (!frame.interaction) {
+    if (frame.speaker && frame.text) showBubble(frame.text, frame.speaker);
+    else hideBubble();
+  } else hideBubble();
+  comicTip.innerText = frame.tip || "";
+  storyProgressSpan.innerText = `场景 ${currentComicIndex+1} / ${comicStory.length}`;
+  if (frame.interaction && !waitingForInteraction) startInteraction(frame);
+  else if (!frame.interaction && !waitingForInteraction) continueOverlay.style.display = 'block';
+}
+function startInteraction(frame) {
+  waitingForInteraction = true;
+  continueAfterInteractionBtn.style.display = 'inline-block';
+  continueAfterInteractionBtn.onclick = () => {
+    if (!waitingForInteraction) return;
+    waitingForInteraction = false;
+    continueAfterInteractionBtn.style.display = 'none';
+    if (currentComicIndex+1 < comicStory.length) { currentComicIndex++; showComicFrame(); }
+    else showEnding();
+  };
+  let url = "";
+  if (frame.interaction===1) url="蒲公英.html";
+  else if (frame.interaction===2) url="毛线.html";
+  else if (frame.interaction===3) url="花朵.html";
+  else if (frame.interaction===4) url="海浪.html";
+  if (url) { alert("即将打开交互页面。完成交互后，请关闭该标签页，然后点击“继续故事”按钮。"); window.open(url, "_blank"); }
+}
+function showEnding() {
+  stopCurrentInteraction();
+  setBackground(getBgPath("10"));
+  hideBubble();
+  comicTip.innerText = '';
+  continueOverlay.style.display = 'none';
+  endingBoard.style.display = 'flex';
+  continueAfterInteractionBtn.style.display = 'none';
+  restartStoryBtn.onclick = () => { currentComicIndex=0; waitingForInteraction=false; resetUI(); showComicFrame(); };
+  goToFreeBtn.onclick = () => switchTab('freeMode');
+}
+continueSceneBtn.addEventListener('click', () => {
+  if (waitingForInteraction) return;
+  if (currentComicIndex+1 < comicStory.length) { currentComicIndex++; showComicFrame(); }
+  else showEnding();
+});
+showComicFrame();
+
+// ========== 自由探索 ==========
+document.querySelectorAll('.free-interact-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    let id = parseInt(btn.dataset.interaction);
+    let urls = ["蒲公英.html","毛线.html","花朵.html","海浪.html"];
+    alert("即将打开交互页面。完成交互后关闭即可。");
+    window.open(urls[id-1], "_blank");
+  });
+});
+
+// ========== 答案之书 ==========
+const answerPool = ["海浪会带走你的焦虑，请相信潮汐自有安排。","答案藏在风里，也藏在你心里。","耐心点，美好的事正慢慢发生。","鸭鸭说：放个情绪屁，一切都会轻一点。","梨梨说：像蒲公英一样吹散烦恼。","你比自己想象中更勇敢。","泪水会汇成温柔的海。","今晚的月亮会拥抱你的不安。","这本书告诉你：你值得被爱。","先原谅自己，再继续前进。"];
+const oracleInput = document.getElementById('oracleInput');
+const askBtn = document.getElementById('askOracleBtn');
+const oracleResult = document.getElementById('oracleResult');
+const shareDiv = document.getElementById('oracleShareButtons');
+const copyBtn = document.getElementById('copyOracleBtn');
+const saveBtn = document.getElementById('saveOracleBtn');
+const resetOracleBtn = document.getElementById('resetOracleBtn');
+const bookContainer = document.getElementById('bookContainer');
+function buildFlipPages(count) {
+  const deck = document.createElement('div'); deck.className = 'flip-page-layer';
+  for (let i=0;i<count;i++) {
+    let page = document.createElement('div'); page.className = 'flip-page';
+    page.style.animationDelay = `${i*0.035}s`;
+    page.style.zIndex = count-i;
+    deck.appendChild(page);
+  }
+  document.querySelector('.book-inner').appendChild(deck);
+  setTimeout(() => deck.remove(), count*35+200);
+}
+askBtn.addEventListener('click', () => {
+  let q = oracleInput.value.trim();
+  if (!q) { alert('写下一句话或问题吧～'); return; }
+  let ans = answerPool[Math.floor(Math.random()*answerPool.length)];
+  bookContainer.classList.add('open');
+  shareDiv.style.display = 'none';
+  oracleResult.style.display = 'none';
+  buildFlipPages(28);
+  setTimeout(() => {
+    oracleResult.innerHTML = `「${q}」<br><br>${ans}`;
+    oracleResult.style.display = 'flex';
+    shareDiv.style.display = 'block';
+  }, 1000);
+});
+copyBtn.onclick = () => { navigator.clipboard.writeText(oracleResult.innerText); alert('已复制'); };
+saveBtn.onclick = () => { html2canvas(oracleResult).then(canvas=>{ let a=document.createElement('a'); a.download='oracle.png'; a.href=canvas.toDataURL(); a.click(); }); };
+resetOracleBtn.onclick = () => { oracleInput.value=''; oracleResult.style.display='none'; shareDiv.style.display='none'; bookContainer.classList.remove('open'); };
+
+// ========== 疗愈知识库 ==========
+const knowListFull = ["情绪12秒效应：暴怒峰值仅持续12秒，默数12秒能平复情绪。","4-7-8呼吸法：吸气4秒，屏息7秒，呼气8秒，快速放松。","蝴蝶拍减压：双手交叉轻拍肩膀，产生安全感。","情绪标签法：说出情绪名称，降低杏仁核活跃度。","积极肯定句：重复“我能应对”，降低皮质醇。","公园20分钟效应：自然中停留20分钟提升幸福感。","色彩调节：焦虑用蓝色，抑郁用黄色。","运动释放内啡肽：内啡肽镇痛效果是吗啡的6倍。","真笑的力量：真笑能释放压力神经递质。"];
+function renderFourKnowledges() {
+  let shuffled = [...knowListFull];
+  for(let i=shuffled.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[shuffled[i],shuffled[j]]=[shuffled[j],shuffled[i]];}
+  document.getElementById('knowledgeList').innerHTML = shuffled.slice(0,4).map(t => `<div class="knowledge-card"><p>${t}</p></div>`).join('');
+}
+document.getElementById('refreshKnowledge').addEventListener('click', renderFourKnowledges);
+renderFourKnowledges();
+
+// ========== 温度计 ==========
+const tempSlider = document.getElementById('tempSlider');
+const tempValueSpan = document.getElementById('tempValue');
+const tempResponseDiv = document.getElementById('tempResponse');
+function updateTemp(val) {
+  val = Number(val);
+  tempValueSpan.innerText = val + '°';
+  if (val < 20) tempResponseDiv.innerText = "🍐 梨梨：心情像蓝天一样轻盈～";
+  else if (val < 45) tempResponseDiv.innerText = "🦆 鸭鸭：有点小压力，吹吹蒲公英吧";
+  else if (val < 70) tempResponseDiv.innerText = "🍐 梨梨：需要抱抱吗？先深呼吸三次";
+  else tempResponseDiv.innerText = "🦆 鸭鸭：海浪会冲走烦恼，我陪着你";
+}
+tempSlider.addEventListener('input', (e) => updateTemp(e.target.value));
+updateTemp(30);
+
+// ========== 心灵抽卡（故事卡+处方） ==========
+const deepStories = [
+  { title: "雨后的泥土味", story: "那天她蹲在花坛边，闻到雨后泥土的腥甜。忽然想起小时候外婆说，这是大地在呼吸。她哭了，也笑了，原来崩溃和治愈可以同时发生。", doPres: "允许自己同时感受多种情绪", dontPres: "批判自己的脆弱" },
+  { title: "凌晨三点的便利店", story: "失眠的他走进24小时便利店，店员微笑递来一杯热茶。什么都没说，但那个夜晚他觉得自己没有被世界抛弃。", doPres: "寻求微小的人际连接", dontPres: "独自硬扛至天明" },
+  { title: "慢下来的钟表", story: "焦虑症发作时，他盯着墙上停摆的钟。时间停止了，世界却很安静。他第一次听见自己的心跳，那是活着的证据。", doPres: "给自己一个暂停键", dontPres: "用忙碌逃避恐惧" },
+  { title: "父亲的旧外套", story: "压力大时他穿上父亲的旧外套，口袋里摸到一张纸条：“儿子，累了就回家。” 原来他一直被爱着，只是忘了。", doPres: "回忆被爱的瞬间", dontPres: "否认自己的疲惫" },
+  { title: "破碎的陶罐", story: "她不小心打碎心爱的陶罐，用金漆修复后变得独一无二。心理师说：创伤不是瑕疵，是你灵魂的金线。", doPres: "把伤口变成故事", dontPres: "掩盖伤疤" },
+  { title: "无声的钢琴", story: "失语症患者无法说话，却在钢琴上弹出旋律。情绪比语言更诚实，找到你的出口。", doPres: "用艺术表达难以言说", dontPres: "强迫自己正常化" },
+  { title: "最后一片叶子", story: "重病的画家看着窗外落叶，邻居老人在墙上画了永不凋落的叶。希望有时是别人赠予的谎言，但谎言救了命。", doPres: "接受善意的支持", dontPres: "拒绝所有的帮助" },
+  { title: "月亮与六便士", story: "满地都是六便士，他却抬头看见月亮。不是每个人都要追逐世俗的成功，仰望星空也是勇敢。", doPres: "呵护你的理想主义", dontPres: "嘲笑自己的天真" },
+  { title: "拥抱刺猬", story: "心理师让来访者画一只刺猬，然后问：你想拥抱它吗？他说：想，但怕被扎。师说：你可以先拥抱它的影子。", doPres: "用温和的方式靠近自己", dontPres: "粗暴地撕开伤口" },
+  { title: "茶凉了", story: "她总说“等忙完这阵就好了”，但茶凉了又热，热了又凉。后来她学会在茶还温热时喝掉，不等待完美时刻。", doPres: "享受当下小小的安慰", dontPres: "无限推迟休息" }
+];
+let spinning=false;
+const card3dDiv = document.getElementById('card3d');
+const drawRes = document.getElementById('drawResult');
+const drawCardBtn = document.getElementById('drawCard3DBtn');
+const saveCardBtnEl = document.getElementById('saveCardBtn');
+function initCardRing() {
+  card3dDiv.innerHTML = '';
+  for (let i=0;i<3;i++) {
+    let card = document.createElement('div');
+    card.className = 'card3d-single';
+    card.style.position = 'absolute';
+    card.style.width = '100%';
+    card.style.height = '100%';
+    card.style.transform = `rotateY(${i*120}deg) translateZ(160px)`;
+    card.style.transformStyle = 'preserve-3d';
+    card.innerHTML = `<div class="card-face card-back"></div><div class="card-face card-front"></div>`;
+    card3dDiv.appendChild(card);
+  }
+  card3dDiv.style.transformStyle = 'preserve-3d';
+  saveCardBtnEl.style.display = 'none';
+}
+function updatePrescription(doTxt, dontTxt) {
+  document.getElementById('doText').innerText = doTxt;
+  document.getElementById('dontText').innerText = dontTxt;
+}
+function showSingleCard(story) {
+  card3dDiv.innerHTML = '';
+  const sc = document.createElement('div');
+  sc.className = 'card-face card-front';
+  sc.style.position = 'relative';
+  sc.style.width = '100%';
+  sc.style.height = '100%';
+  sc.style.transform = 'none';
+  sc.style.backfaceVisibility = 'visible';
+  sc.style.borderRadius = '22px';
+  sc.style.display = 'flex';
+  sc.style.flexDirection = 'column';
+  sc.style.justifyContent = 'center';
+  sc.style.padding = '1rem';
+  sc.style.overflowY = 'auto';
+  sc.innerHTML = `<div class="story-title">${story.title}</div><div class="story-text">${story.story}</div>`;
+  card3dDiv.appendChild(sc);
+  saveCardBtnEl.style.display = 'inline-block';
+  drawRes.innerHTML = '✨ 卡片已翻转 ✨';
+  updatePrescription(story.doPres, story.dontPres);
+}
+function performDraw() {
+  if (spinning) return;
+  spinning = true;
+  saveCardBtnEl.style.display = 'none';
+  drawCardBtn.disabled = true;
+  const idx = Math.floor(Math.random() * deepStories.length);
+  const selected = deepStories[idx];
+  const fronts = card3dDiv.querySelectorAll('.card-front');
+  for (let f of fronts) f.innerHTML = `<div class="story-title">${selected.title}</div><div class="story-text">${selected.story}</div>`;
+  const start = performance.now();
+  const duration = 1800;
+  function animate(now) {
+    let t = Math.min(1, (now-start)/duration);
+    let angle = 360*3*t*t;
+    card3dDiv.style.transform = `rotateY(${angle}deg)`;
+    if (t<1) requestAnimationFrame(animate);
+    else { showSingleCard(selected); spinning=false; drawCardBtn.disabled=false; }
+  }
+  requestAnimationFrame(animate);
+}
+drawCardBtn.addEventListener('click', () => { if (card3dDiv.children.length!==3) initCardRing(); performDraw(); });
+saveCardBtnEl.addEventListener('click', () => {
+  const target = card3dDiv.querySelector('.card-front');
+  if (target) html2canvas(target).then(canvas => { let a=document.createElement('a'); a.download='storycard.png'; a.href=canvas.toDataURL(); a.click(); });
+});
+initCardRing();
+updatePrescription("接纳不完美", "自我攻击");
+
+// ========== 留言墙 ==========
+const realMessages = [
+  "今天加班到很晚，但看到夜空有星星", "和好朋友和好了，心里暖暖的", "其实我也在努力，只是没人看到", "今天哭了一场，反而轻松了", "考砸了，但我决定原谅自己", "一个人搬家，有点累但完成了", "被领导批评了，但我知道下次会更好", "好像很久没有真心笑过了，今天试了试", "不管怎样，明天还是要继续呀", "事情好多，但一件件做吧", "觉得自己不够好，但我在学习爱自己", "今天给自己买了束花", "把烦恼写出来好像就没那么重了", "好想有人抱抱我，我先抱抱自己", "听了一首老歌，突然释怀了"
+];
+let bubblePool = [...realMessages];
+function createBubble(text, startYPercent = null) {
+  if (!text.trim()) return;
+  const container = document.getElementById('bubbleCloud');
+  const bubble = document.createElement('div');
+  bubble.className = 'floating-bubble';
+  bubble.innerText = text;
+  bubble.style.left = (5 + Math.random() * 85) + '%';
+  let bottomStart = startYPercent !== null ? startYPercent : (Math.random() * 60 + 10);
+  bubble.style.bottom = bottomStart + '%';
+  const duration = 7 + Math.random() * 5;
+  bubble.style.animationDuration = `${duration}s`;
+  const delay = Math.random() * 1.2;
+  bubble.style.animationDelay = `${delay}s`;
+  bubble.style.fontSize = `${0.8 + Math.random()*0.6}rem`;
+  container.appendChild(bubble);
+  bubble.addEventListener('animationend', () => bubble.remove());
+}
+for (let i=0;i<24;i++) {
+  setTimeout(() => {
+    let msg = bubblePool[Math.floor(Math.random() * bubblePool.length)];
+    createBubble(msg, Math.random() * 70 + 10);
+  }, i * 200);
+}
+setInterval(() => {
+  if (document.getElementById('message').classList.contains('active')) {
+    let msg = bubblePool[Math.floor(Math.random() * bubblePool.length)];
+    createBubble(msg, Math.random() * 60 + 10);
+  }
+}, 3500);
+document.getElementById('submitMessage').addEventListener('click', () => {
+  let newMsg = document.getElementById('messageInput').value.trim();
+  if (!newMsg) { alert("写一句话吧"); return; }
+  if (newMsg.length > 40) newMsg = newMsg.slice(0,40)+"...";
+  createBubble(newMsg, Math.random() * 60 + 10);
+  bubblePool.push(newMsg);
+  document.getElementById('messageInput').value = '';
+});
+document.getElementById('messageInput').addEventListener('keypress', (e) => { if (e.key === 'Enter') document.getElementById('submitMessage').click(); });
+
+// ========== 每日一句 ==========
+const dailyQuotes = ["情绪12秒效应：数12下，愤怒峰值就过去了。","允许自己偶尔停下，焦虑会得到缓冲。","你未必光芒万丈，但始终温暖有光。","快乐没有模板，心安即是福祉。","世界偶尔尖锐，但你可以柔软。"];
+document.getElementById('dailyQuote').innerText = `✨ ${dailyQuotes[Math.floor(Math.random() * dailyQuotes.length)]}`;
+
+// ========== 背景音乐 ==========
+let bgm=null, bgmPlaying=false;
+document.getElementById('musicIcon').addEventListener('click', () => {
+  if (!bgm) { bgm = new Audio('https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'); bgm.loop = true; bgm.volume = 0.2; }
+  if (bgmPlaying) { bgm.pause(); document.getElementById('musicIcon').innerHTML = '🔇'; }
+  else { bgm.play().catch(()=>{}); document.getElementById('musicIcon').innerHTML = '🔊'; }
+  bgmPlaying = !bgmPlaying;
+});
+
+// ========== 导航切换（滚动到顶部） ==========
+function switchTab(tabId) {
+  document.querySelectorAll('.tab-content').forEach(section => {
+    section.classList.remove('active');
+  });
+  const target = document.getElementById(tabId);
+  if (target) target.classList.add('active');
+  document.querySelectorAll('.menu li').forEach(li => {
+    li.classList.remove('active');
+    if (li.getAttribute('data-tab') === tabId) li.classList.add('active');
+  });
+  // 滚动到顶部，让新页面出现在视口顶部
+  setTimeout(() => {
+    window.scrollTo(0, 0);
+  }, 20);
+}
+document.querySelectorAll('.menu li').forEach(li => {
+  li.addEventListener('click', (e) => {
+    const tabId = li.getAttribute('data-tab');
+    switchTab(tabId);
+  });
+});
+document.getElementById('modeStoryBtn').addEventListener('click', () => switchTab('storyMode'));
+document.getElementById('modeFreeBtn').addEventListener('click', () => switchTab('freeMode'));
+
+window.scrollTo(0, 0);
+</script>
+</body>
+</html>

@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>蒲公英 · 吹走烦恼</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+        /* 漫画背景 */
+        .bg-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+        .comic-bg {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            z-index: 1;
+        }
+        /* 对话框 */
+        .bubble {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.96);
+            padding: 12px 18px;
+            border-radius: 20px;
+            max-width: 38%;
+            font-size: 16px;
+            line-height: 1.5;
+            color: #222;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            z-index: 20;
+            border: 1px solid #f0cfbd;
+        }
+        .bubble-lili { bottom: 30px; left: 30px; }
+        .bubble-yaya { bottom: 30px; right: 30px; }
+        /* 原始画布容器，置于背景之上 */
+        .p5-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            background: transparent;
+        }
+        .tip {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            color: white;
+            background: rgba(0,0,0,0.6);
+            padding: 8px;
+            font-size: 14px;
+            z-index: 20;
+            pointer-events: none;
+        }
+        @media (max-width: 700px) {
+            .bubble { max-width: 70%; font-size: 13px; bottom: 20px; }
+            .bubble-lili { left: 15px; }
+            .bubble-yaya { right: 15px; }
+        }
+    </style>
+</head>
+<body>
+<!-- 背景 -->
+<div class="bg-container">
+    <img id="comicBg" class="comic-bg" src="">
+    <div class="overlay"></div>
+</div>
+<!-- 对话框 -->
+<div class="bubble bubble-lili" id="liliBubble"></div>
+<div class="bubble bubble-yaya" id="yayaBubble"></div>
+<div class="tip">🌼 滑动鼠标拂去烦恼字词，所有字词消失后关闭本页</div>
+<div id="p5Canvas" class="p5-canvas"></div>
+
+<script>
+    // ==================== 请修改为您实际的图片路径 ====================
+    const IMG_BASE_PATH = "C:\\Users\\HP\\OneDrive\\桌面\\新建文件夹\\";
+    // ===============================================================
+    const bgImg = IMG_BASE_PATH + (IMG_BASE_PATH.includes("4") ? "4.jpg" : "4.png");
+    document.getElementById('comicBg').src = bgImg;
+    document.getElementById('liliBubble').innerHTML = "🍐 梨梨：你用鼠标（或手指）轻轻扫过蒲公英就好啦。那些烦恼字词会跟着绒毛一起逃跑哦。";
+    document.getElementById('yayaBubble').innerHTML = "🦆 鸭鸭：吹……吹走？那我该怎么做？";
+
+    // ********************** 以下为您的原始蒲公英交互代码（未作任何修改） **********************
+    let textContent = "烦"; // 预设一段文字
+    let layers = 5;
+    let circleSize = 30;
+    let circleColor = 'white';
+    let textSizeValue = 18;
+    let textColor = 'white';
+    let lineThickness = 0.5;
+    let lineColor = 'white';
+    let backgroundColor = '#4ac7f8';
+    let lineHeight = 10;
+    let minAngleSpacing = 3;
+    let maxAngleSpacing = 7;
+    let minSpeedX = 3;
+    let maxSpeedX = 5;
+    let minSpeedY = -12;
+    let maxSpeedY = -2;
+    let minLineLength = 55;
+    let maxLineLength = 175;
+    let uniformLineLength = 100;
+    let characters = [];
+    let flyingDirection;
+    let hoverScaleFactor = 2.5;
+
+    function setup() {
+        let canvas = createCanvas(windowWidth, windowHeight);
+        canvas.parent('p5Canvas');
+        textAlign(CENTER, CENTER);
+        fill(textColor);
+        textSize(textSizeValue);
+        flyingDirection = random(PI / 3, (2 * PI) / 3);
+        initializeCharacters();
+    }
+
+    function initializeCharacters() {
+        for (let layer = 1; layer <= layers; layer++) {
+            let distanceFromCenter = (circleSize / 2) + (layer * (textSizeValue + lineHeight));
+            let totalTextLength = layer * 12;
+            let repeatText = textContent.repeat(Math.ceil(totalTextLength / textContent.length));
+            let fullText = repeatText.substring(0, totalTextLength);
+            let fixedAngleSpacing = radians(360 / totalTextLength);
+            let currentAngle = 0;
+            for (let i = 0; i < fullText.length; i++) {
+                let randomAngle = random(radians(minAngleSpacing), radians(maxAngleSpacing));
+                currentAngle += fixedAngleSpacing + randomAngle;
+                let speedX = random(minSpeedX, maxSpeedX) * cos(flyingDirection) + random(-1, 1);
+                let speedY = random(minSpeedY, maxSpeedY) * sin(flyingDirection) + random(-1, 1);
+                let offsetX = random(-5, 5);
+                let offsetY = random(-5, 5);
+                let swaySpeed = random(0.01, 0.05);
+                let swayAmount = random(0.1, 0.1);
+                characters.push({
+                    char: fullText.charAt(i),
+                    angle: currentAngle,
+                    distanceFromCenter: distanceFromCenter,
+                    posX: width / 2 + cos(currentAngle) * distanceFromCenter + offsetX,
+                    posY: height / 2 + sin(currentAngle) * distanceFromCenter + offsetY,
+                    speedX: speedX,
+                    speedY: speedY,
+                    flying: false,
+                    swaySpeed: swaySpeed,
+                    swayAmount: swayAmount,
+                    swayOffset: 0,
+                });
+            }
+        }
+    }
+
+    function draw() {
+        background(backgroundColor);
+        let centerX = width / 2;
+        let centerY = height / 2;
+        fill(circleColor);
+        ellipse(centerX, centerY, circleSize);
+        for (let c of characters) {
+            let isHovered = dist(mouseX, mouseY, c.posX, c.posY) < (textSizeValue * hoverScaleFactor);
+            if (isHovered) c.flying = true;
+            if (c.flying) {
+                c.posX += c.speedX;
+                c.posY += c.speedY;
+            } else {
+                c.swayOffset += c.swaySpeed;
+                c.posY += sin(c.swayOffset) * c.swayAmount;
+            }
+            push();
+            translate(c.posX, c.posY);
+            rotate(c.angle + HALF_PI);
+            noStroke();
+            fill(textColor);
+            text(c.char, 0, 0);
+            pop();
+            let lineEndX = c.posX - (uniformLineLength * cos(c.angle));
+            let lineEndY = c.posY - (uniformLineLength * sin(c.angle));
+            stroke(lineColor);
+            strokeWeight(lineThickness);
+            line(c.posX, c.posY, lineEndX, lineEndY);
+            if (c.flying) {
+                fill(backgroundColor);
+                text(c.char, c.posX, c.posY);
+            }
+        }
+    }
+
+    function windowResized() {
+        resizeCanvas(windowWidth, windowHeight);
+        characters = [];
+        initializeCharacters();
+    }
+</script>
+</body>
+</html>

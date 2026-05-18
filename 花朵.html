@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>乱码开花 · 字母变花朵</title>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.min.js"></script>
+  <script src="https://unpkg.com/ml5@0.12.2/dist/ml5.min.js"></script>
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+    /* 漫画背景层 */
+    .bg-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+    }
+    .comic-bg {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.3);
+      z-index: 1;
+    }
+    /* 对话框 */
+    .bubble {
+      position: absolute;
+      background: rgba(255, 255, 255, 0.96);
+      padding: 12px 18px;
+      border-radius: 20px;
+      max-width: 38%;
+      font-size: 16px;
+      line-height: 1.5;
+      color: #222;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      z-index: 20;
+      border: 1px solid #f0cfbd;
+      pointer-events: none;
+    }
+    .bubble-lili { bottom: 30px; left: 30px; }
+    .bubble-yaya { bottom: 30px; right: 30px; }
+    /* p5 画布层 */
+    .p5-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+    }
+    .tip {
+      position: absolute;
+      bottom: 20px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      color: white;
+      background: rgba(0,0,0,0.6);
+      padding: 8px;
+      font-size: 14px;
+      z-index: 20;
+      pointer-events: none;
+    }
+    @media (max-width: 700px) {
+      .bubble { max-width: 70%; font-size: 13px; bottom: 20px; }
+      .bubble-lili { left: 15px; }
+      .bubble-yaya { right: 15px; }
+    }
+  </style>
+</head>
+<body>
+<div class="bg-container">
+  <img id="comicBg" class="comic-bg" src="">
+  <div class="overlay"></div>
+</div>
+<div class="bubble bubble-lili" id="liliBubble"></div>
+<div class="bubble bubble-yaya" id="yayaBubble"></div>
+<div class="tip">🌸 点击红色乱码字母 → 它们会变成花朵 🌸<br>（所有字母开花后关闭本页）</div>
+<div id="p5Canvas" class="p5-canvas"></div>
+
+<script>
+  // 请修改为您实际的图片路径
+  const IMG_BASE_PATH = "C:\\Users\\HP\\OneDrive\\桌面\\新建文件夹\\";
+  const bgImg = IMG_BASE_PATH + (IMG_BASE_PATH.includes("4") ? "4.jpg" : "4.png");
+  document.getElementById('comicBg').src = bgImg;
+  document.getElementById('liliBubble').innerHTML = "🍐 梨梨：那些乱码就在这儿。你试着点击其中几个特别吵的字母，它们会变红、变大，然后……噗！变成花哦。";
+  document.getElementById('yayaBubble').innerHTML = "🦆 鸭鸭：可是……有时候我心里会突然冒出好多好多看不懂的字母和符号，像电脑死机时的全屏乱码，吵得我脑袋嗡嗡响。";
+
+  // ========== 开花交互（点击开花，无自动掉落） ==========
+  let fontSize = 15;
+  let letterSpacing = 2;
+  let lineSpacing = 3;
+  let shakeRange = 1;
+  let fallSpeed = 6;
+  let detectRadius = 25;
+  let fontColor = '#ffffff';
+  let bgColor = '#AED581';
+  let redColor = '#ff6b6b';
+  let flowerBaseSize = 28;
+  let flowerSizeMultiplier = 1.0;
+  let flowerLifetime = 12000;
+  let flowerPetalCount = 12;
+  let flowerMinSpacing = 34;
+
+  let cols, rows;
+  let characterGrid = [];
+  let fallChars = [];
+  let flowers = [];
+
+  let video = null;
+  let handposeModel = null;
+  let hands = [];
+  let started = false;
+  let useML5 = false;
+  let modelLoaded = false;
+  let justClicked = false;  // 防止一次点击触发多个
+
+  function setup() {
+    let canvas = createCanvas(windowWidth, windowHeight);
+    canvas.parent('p5Canvas');
+    textSize(fontSize);
+    textAlign(CENTER, CENTER);
+    noCursor();
+
+    cols = floor(width / (textWidth('A') + letterSpacing));
+    rows = floor(height / (fontSize + lineSpacing));
+
+    for (let i = 0; i < rows; i++) {
+      characterGrid[i] = [];
+      for (let j = 0; j < cols; j++) {
+        let ch = String.fromCharCode(floor(random(65, 91)));
+        characterGrid[i][j] = {
+          letter: ch,
+          isRed: false,
+          isFalling: false,
+          x: 0, y: 0,
+          row: i, col: j
+        };
+      }
+    }
+    // 随机 30% 红色字母
+    for (let i = 0; i < rows; i++) {
+      for (let j = 0; j < cols; j++) {
+        if (random() < 0.3) {
+          characterGrid[i][j].isRed = true;
+        }
+      }
+    }
+  }
+
+  function draw() {
+    background(bgColor);
+    drawShakeChars();
+    updateFallingChars();
+    updateFlowers();
+
+    let hasRed = false;
+    for (let i = 0; i < rows && !hasRed; i++) {
+      for (let j = 0; j < cols; j++) {
+        if (characterGrid[i][j].isRed && !characterGrid[i][j].isFalling) {
+          hasRed = true;
+          break;
+        }
+      }
+    }
+    if (!hasRed && fallChars.length === 0) {
+      fill(0, 180);
+      rect(0, 0, width, height);
+      fill(255);
+      textSize(24);
+      text("✨ 所有字母都已开花 ✨\n您可以关闭此页面了", width/2, height/2);
+      noLoop();
+    }
+  }
+
+  function drawShakeChars() {
+    for (let i = 0; i < rows; i++) {
+      for (let j = 0; j < cols; j++) {
+        let cd = characterGrid[i][j];
+        let x = j * (textWidth('A') + letterSpacing) + textWidth('A')/2;
+        let y = i * (fontSize + lineSpacing) + fontSize/2;
+        cd.x = x; cd.y = y;
+        if (cd.isFalling) continue;
+        let sx = random(-shakeRange, shakeRange);
+        let sy = random(-shakeRange, shakeRange);
+        if (cd.letter === "") continue;
+        if (cd.isRed) {
+          fill(redColor);
+        } else {
+          fill(fontColor);
+        }
+        text(cd.letter, x + sx, y + sy);
+      }
+    }
+  }
+
+  // 使用 mousePressed 事件，每按一次只触发一个字母
+  function mousePressed() {
+    // 首次点击激活摄像头
+    if (!started) {
+      started = true;
+      try {
+        video = createCapture(VIDEO, () => { console.log("camera ready"); });
+        video.size(width, height);
+        video.hide();
+      } catch(e) { console.warn(e); video = null; }
+      if (typeof ml5 !== 'undefined' && video) {
+        try {
+          useML5 = true;
+          handposeModel = ml5.handpose(video, { flipHorizontal: false }, () => { modelLoaded = true; });
+          handposeModel.on('predict', (results) => { hands = results; });
+          setTimeout(() => { if (!modelLoaded) { useML5 = false; } }, 8000);
+        } catch(err) { useML5 = false; }
+      }
+      return;
+    }
+
+    // 找到距离鼠标最近的红色字母，只触发一个
+    let closestDist = detectRadius + 1;
+    let target = null;
+    for (let i = 0; i < rows; i++) {
+      for (let j = 0; j < cols; j++) {
+        let cd = characterGrid[i][j];
+        if (cd.isRed && !cd.isFalling) {
+          let d = dist(mouseX, mouseY, cd.x, cd.y);
+          if (d < detectRadius && d < closestDist) {
+            closestDist = d;
+            target = cd;
+          }
+        }
+      }
+    }
+    if (target) {
+      target.isFalling = true;
+      fallChars.push({
+        letter: target.letter,
+        x: target.x,
+        y: target.y,
+        fallY: target.y
+      });
+      target.letter = "";
+      target.isRed = false;
+    }
+  }
+
+  // 手势交互：同样只触发最近的红色字母
+  function detectHandTouch() {
+    if (!useML5 || !modelLoaded || hands.length === 0) return;
+    let pred = hands[0];
+    let ix = null, iy = null;
+    if (pred.annotations && pred.annotations.indexFinger && pred.annotations.indexFinger[3]) {
+      ix = pred.annotations.indexFinger[3][0];
+      iy = pred.annotations.indexFinger[3][1];
+    } else if (pred.landmarks && pred.landmarks[8]) {
+      ix = pred.landmarks[8][0];
+      iy = pred.landmarks[8][1];
+    }
+    if (ix !== null && iy !== null) {
+      let fx = width - ix;
+      let fy = iy;
+      let closestDist = detectRadius + 1;
+      let target = null;
+      for (let i = 0; i < rows; i++) {
+        for (let j = 0; j < cols; j++) {
+          let cd = characterGrid[i][j];
+          if (cd.isRed && !cd.isFalling) {
+            let d = dist(fx, fy, cd.x, cd.y);
+            if (d < detectRadius && d < closestDist) {
+              closestDist = d;
+              target = cd;
+            }
+          }
+        }
+      }
+      if (target) {
+        target.isFalling = true;
+        fallChars.push({
+          letter: target.letter,
+          x: target.x,
+          y: target.y,
+          fallY: target.y
+        });
+        target.letter = "";
+        target.isRed = false;
+      }
+    }
+  }
+
+  // 在 draw 中定期检查手势（但只触发一次，用手势时不会重复触发）
+  let lastHandTime = 0;
+  function checkHand() {
+    if (millis() - lastHandTime > 200) { // 节流
+      detectHandTouch();
+      lastHandTime = millis();
+    }
+  }
+
+  // 在 draw 末尾调用手势检测
+  function draw() {
+    background(bgColor);
+    drawShakeChars();
+    updateFallingChars();
+    updateFlowers();
+    checkHand();  // 手势检测
+
+    let hasRed = false;
+    for (let i = 0; i < rows && !hasRed; i++) {
+      for (let j = 0; j < cols; j++) {
+        if (characterGrid[i][j].isRed && !characterGrid[i][j].isFalling) {
+          hasRed = true;
+          break;
+        }
+      }
+    }
+    if (!hasRed && fallChars.length === 0) {
+      fill(0, 180);
+      rect(0, 0, width, height);
+      fill(255);
+      textSize(24);
+      text("✨ 所有字母都已开花 ✨\n您可以关闭此页面了", width/2, height/2);
+      noLoop();
+    }
+  }
+
+  function updateFallingChars() {
+    for (let i = fallChars.length - 1; i >= 0; i--) {
+      let fc = fallChars[i];
+      fc.fallY += fallSpeed;
+      fill(redColor);
+      text(fc.letter, fc.x, fc.fallY);
+      if (fc.fallY > fc.y + fontSize * 1.8) {
+        let sizeScale = (textWidth('A') + letterSpacing) / 20;
+        let finalSize = flowerBaseSize * max(0.8, sizeScale) * flowerSizeMultiplier;
+        let tooClose = false;
+        for (let f of flowers) if (dist(fc.x, fc.y, f.x, f.y) < flowerMinSpacing) { tooClose = true; break; }
+        if (!tooClose) flowers.push(new Flower(fc.x, fc.y, finalSize));
+        fallChars.splice(i, 1);
+      }
+    }
+  }
+
+  class Flower {
+    constructor(x, y, baseSize) {
+      this.x = x; this.y = y; this.baseSize = baseSize;
+      this.start = millis(); this.lifetime = flowerLifetime;
+      this.petals = flowerPetalCount;
+      this.innerPetals = max(2, floor(this.petals * 0.35));
+      let paletteHex = ['#FFC0CB','#FFA726','#B2EBF2','#D4E157','#FFFDE7','#D1C4E9'];
+      this.petalColor = color(random(paletteHex));
+      this.innerColor = color(random(paletteHex));
+      this.centerColor = color(random(paletteHex));
+      this.centerAccent = this.centerColor;
+      this.rotation = random(TWO_PI);
+      this.rotationSpeed = random(-0.002,0.002);
+      this.seeds = [];
+      let seedCount = floor(map(baseSize,12,50,8,30));
+      for (let i=0;i<seedCount;i++) { let a=random(TWO_PI), r=random(0,baseSize*0.28); this.seeds.push({a:a,r:r,size:random(0.8,2.2)}); }
+    }
+    draw() {
+      let now = millis(), t = (now - this.start) / this.lifetime;
+      let scale = (t<0.12) ? 1.05 : (t<0.25) ? 1.0 : 1.0;
+      let alphaMul = (t>0.9) ? map(t,0.9,1.0,1,0) : 1;
+      push(); translate(this.x,this.y); rotate(this.rotation + now * this.rotationSpeed);
+      noStroke();
+      for (let p=0; p<this.petals; p++) {
+        let angle = (TWO_PI/this.petals)*p;
+        push(); rotate(angle); translate(this.baseSize*0.6*scale,0);
+        fill(red(this.petalColor),green(this.petalColor),blue(this.petalColor),230*alphaMul);
+        ellipse(0,0,this.baseSize*0.5*scale,this.baseSize*2.8*scale);
+        pop();
+      }
+      for (let p=0; p<this.innerPetals; p++) {
+        let angle = (TWO_PI/this.innerPetals)*p+0.5*(TWO_PI/this.innerPetals);
+        push(); rotate(angle); translate(this.baseSize*0.18*scale,0);
+        fill(red(this.innerColor),green(this.innerColor),blue(this.innerColor),220*alphaMul);
+        ellipse(0,0,this.baseSize*0.4*scale,this.baseSize*1.0*scale);
+        pop();
+      }
+      fill(red(this.centerColor),green(this.centerColor),blue(this.centerColor),240*alphaMul);
+      ellipse(0,0,this.baseSize*0.32*scale,this.baseSize*0.32*scale);
+      for (let s of this.seeds) {
+        let sx = cos(s.a)*s.r*scale*0.9, sy = sin(s.a)*s.r*scale*0.9;
+        fill(red(this.centerColor),green(this.centerColor),blue(this.centerColor),180*alphaMul);
+        ellipse(sx,sy,s.size*scale,s.size*scale);
+      }
+      fill(red(this.centerAccent),green(this.centerAccent),blue(this.centerAccent),255*alphaMul);
+      ellipse(0,0,this.baseSize*0.10*scale,this.baseSize*0.10*scale);
+      pop();
+    }
+    isDead() { return millis() - this.start > this.lifetime; }
+  }
+
+  function updateFlowers() {
+    for (let i = flowers.length - 1; i >= 0; i--) {
+      let f = flowers[i];
+      f.draw();
+      if (f.isDead()) flowers.splice(i, 1);
+    }
+  }
+
+  function windowResized() {
+    resizeCanvas(windowWidth, windowHeight);
+    textSize(fontSize);
+    cols = floor(width / (textWidth('A') + letterSpacing));
+    rows = floor(height / (fontSize + lineSpacing));
+    // 重新初始化网格，保留红色字母
+    for (let i = 0; i < rows; i++) {
+      if (!characterGrid[i]) characterGrid[i] = [];
+      for (let j = 0; j < cols; j++) {
+        if (!characterGrid[i][j]) {
+          let ch = String.fromCharCode(floor(random(65, 91)));
+          characterGrid[i][j] = {
+            letter: ch,
+            isRed: false,
+            isFalling: false,
+            x: 0, y: 0,
+            row: i, col: j
+          };
+          if (random() < 0.3) characterGrid[i][j].isRed = true;
+        }
+      }
+    }
+  }
+</script>
+</body>
+</html>

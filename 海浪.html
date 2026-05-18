@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>海浪冲烦恼 · 声控海浪</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background-color: #F4E4C1; /* 沙滩底色 */
+            background-image: radial-gradient(circle at 20% 80%, #EED9B0 2%, transparent 2.5%);
+            background-size: 40px 40px;
+        }
+        /* 漫画背景层（可选保留，但主体已是沙滩） */
+        .bg-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            opacity: 0.6;
+        }
+        .comic-bg {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.2);
+            z-index: 1;
+        }
+        /* 对话框 */
+        .bubble {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.96);
+            padding: 12px 18px;
+            border-radius: 20px;
+            max-width: 38%;
+            font-size: 16px;
+            line-height: 1.5;
+            color: #222;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            z-index: 20;
+            border: 1px solid #f0cfbd;
+            pointer-events: none;
+        }
+        .bubble-lili { bottom: 30px; left: 30px; }
+        .bubble-yaya { bottom: 30px; right: 30px; }
+        /* 海浪原有样式 */
+        .input-area {
+            position: absolute;
+            top: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            height: 35%;
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #textInput {
+            width: 100%;
+            height: 30%;
+            background: rgba(255, 255, 255, 0.8);
+            border: 2px solid #cfa392;
+            border-radius: 30px;
+            outline: none;
+            font-size: 22px;
+            color: #333;
+            text-align: center;
+            line-height: 1.8;
+            font-family: "kai", cursive;
+            backdrop-filter: blur(4px);
+        }
+        #textInput::placeholder{
+            color: #a07a68;
+        }
+        canvas {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 10;
+            cursor: pointer;
+        }
+        .tip {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            color: white;
+            background: rgba(0,0,0,0.6);
+            padding: 8px;
+            font-size: 14px;
+            z-index: 20;
+            pointer-events: none;
+        }
+        @media (max-width: 700px) {
+            .bubble { max-width: 70%; font-size: 13px; bottom: 20px; }
+            .bubble-lili { left: 15px; }
+            .bubble-yaya { right: 15px; }
+        }
+    </style>
+</head>
+<body>
+<div class="bg-container">
+    <img id="comicBg" class="comic-bg" src="">
+    <div class="overlay"></div>
+</div>
+<div class="bubble bubble-lili" id="liliBubble"></div>
+<div class="bubble bubble-yaya" id="yayaBubble"></div>
+<div class="input-area">
+    <textarea id="textInput" placeholder="写下你的烦恼吧..."></textarea>
+</div>
+<canvas id="canvas"></canvas>
+<div class="tip">🎤 小声海浪平缓 | 大声海浪汹涌 | 点击画布 → 海水吞没文字</div>
+
+<script>
+    // 请修改为您实际的图片路径
+    const IMG_BASE_PATH = "C:\\Users\\HP\\OneDrive\\桌面\\新建文件夹\\";
+    const bgImg = IMG_BASE_PATH + (IMG_BASE_PATH.includes("4") ? "4.jpg" : "4.png");
+    document.getElementById('comicBg').src = bgImg;
+    document.getElementById('liliBubble').innerHTML = "🍐 梨梨：海浪听到声音就会涌上来，把字冲得干干净净。";
+    document.getElementById('yayaBubble').innerHTML = "🦆 鸭鸭：我要把烦恼写在沙滩上，大声喊出来。";
+
+    // ========== 海浪交互（修改海颜色为淡蓝，其他不变） ==========
+    const config = {
+        seaColor: '#87CEEB',   // 改为淡蓝色（天空蓝）
+        waveBorder: '#FFFFFF',
+        charColor: '#FFFFFF',
+        riseSpeed: 0.03,
+        fallSpeed: 0.03,
+        coverHideLine: 0.02,
+        baseSpeed: 0.025,
+        baseWaveRange: 30,
+        maxWaveRange: 80,
+        waveFrequency: 0.01,
+        voiceThresh: 0.02,
+        charSize: 13,
+        colSpace: 60,
+        charLineGap: 15,
+        maxColLen: 100,
+        minColLen: 2,
+        initWaveRatio: 0.6,
+        borderWidth: 20,
+        wordRefreshRate: 10,
+        alphaGradient: 0.8
+    };
+
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    let winW = window.innerWidth;
+    let winH = window.innerHeight;
+    canvas.width = winW;
+    canvas.height = winH;
+
+    let time = 0;
+    let wordTick = 2;
+    let waveBaseY = winH * config.initWaveRatio;
+    let targetWaveY = waveBaseY;
+    let isTide = false;
+    let audioContext, analyser, dataArray;
+    let voiceVolume = 0;
+
+    const charPool = "心向暖阳而行,日子温柔闪光,万事皆有回甘,前路漫漫亦灿,岁岁平安喜乐,心怀温柔向善,清风伴你前行,所愿皆能如愿,生活满是温情,步履从容安然,烟火皆是温柔,美好如约而至,余生自在从容,浅喜深爱相伴,静待繁花盛开,不负岁月温柔,心怀赤诚热烈,风雨皆会释怀,人间处处晴朗,平安顺遂无忧,眼里盛满星光,万事从容顺遂,岁岁常欢愉事,年年皆胜意时,温柔遍历山河,初心不曾更改,奔赴人间温暖,所得皆所期许,心平自有清欢,淡淡日子生香,一路向阳而生,不负韶华时光,愿你事事顺心,岁岁无忧无扰,心怀暖意长存,遇见皆是温柔,前路光明坦荡,往后皆是坦途,喜乐常伴朝夕,好运如约降临,保持满心热爱,奔赴万里晴空,余生温柔自在,万事尽可期待,清风温煦如常,喜乐安然度日,心怀善意前行,岁岁年年安然,世间温柔予你,烟火暖度余生,抬眼皆是美好,低头皆是温情,平凡亦有欢喜,岁月静好不扰,心有山海澄澈,静待岁月回甘,从容度过朝夕,温暖常驻心田,奔赴温柔山海,日子岁岁明朗,常怀温热之心,静待春风拂面,万般皆有可期,喜乐漫过四季,温柔藏于日常,平安常伴左右,心拥万丈光芒,不惧前路风霜,所得皆是圆满,余生岁岁清欢,轻拥岁月温柔,静享人间烟火,向阳不惧寒凉,温柔治愈所有,心怀明朗澄澈,一路温暖相随,岁岁常得安然,万事轻舟顺意,笑意漫染眉间,好运常驻身旁,浅渡温柔岁月,静候美好相逢,赤诚奔赴热爱,余生满是晴朗,清风抚慰心事,暖阳治愈心绪,人间值得奔赴,温柔以待余生,岁岁温温柔柔,朝朝暮暮欢喜,心藏满目星光,前路繁花似锦,安然度过流年,温情常驻日常";
+
+    let colList = [];
+    let lastWord = "";
+
+    function initColumn() {
+        colList = [];
+        let startX = 0;
+        while(startX < winW) {
+            let colLen = Math.floor(Math.random() * (config.maxColLen - config.minColLen + 1)) + config.minColLen;
+            colList.push({
+                x: startX,
+                len: colLen,
+                swayOff: Math.random() * Math.PI * 2,
+                floatSpeed: 0.6 + Math.random() * 0.4
+            });
+            startX += config.colSpace;
+        }
+    }
+
+    async function initAudio(){
+        try{
+            const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const source = audioContext.createMediaStreamSource(stream);
+            analyser = audioContext.createAnalyser();
+            analyser.fftSize = 512;
+            dataArray = new Uint8Array(analyser.frequencyBinCount);
+            source.connect(analyser);
+        }catch(e){}
+    }
+
+    function getVoiceVolume(){
+        if(!analyser) return 0;
+        analyser.getByteFrequencyData(dataArray);
+        let sum = 0;
+        dataArray.forEach(v=>sum+=v);
+        return Math.min(1, sum / dataArray.length / 255);
+    }
+
+    function getDynamicWaveRange(){
+        return config.baseWaveRange + voiceVolume * (config.maxWaveRange - config.baseWaveRange);
+    }
+
+    function getWaveY(x){
+        let curRange = getDynamicWaveRange();
+        let main = Math.sin(x * config.waveFrequency + time) * curRange;
+        let chaos = Math.sin(x * 0.03 - time * 0.8) * curRange * 0.3;
+        return waveBaseY + main + chaos;
+    }
+
+    canvas.addEventListener('click', ()=>{
+        if(isTide) return;
+        isTide = true;
+        targetWaveY = -winH * 0.4; 
+    });
+
+    function drawScene(){
+        ctx.clearRect(0,0,winW,winH);
+        voiceVolume = getVoiceVolume();
+
+        let curFlowSpeed = config.baseSpeed + voiceVolume * 0.04;
+        time += curFlowSpeed;
+
+        if(targetWaveY < waveBaseY){
+            waveBaseY += (targetWaveY - waveBaseY) * config.riseSpeed;
+        }else{
+            waveBaseY += (targetWaveY - waveBaseY) * config.fallSpeed;
+        }
+
+        if(isTide && waveBaseY < winH * config.coverHideLine){
+            document.getElementById('textInput').value = '';
+        }
+
+        if(isTide && waveBaseY <= 5){
+            setTimeout(() => {
+                targetWaveY = winH * config.initWaveRatio;
+                isTide = false;
+            }, 150);
+        }
+
+        ctx.beginPath();
+        ctx.moveTo(0, winH);
+        for (let x = 0; x <= winW; x += 6) {
+            ctx.lineTo(x, getWaveY(x));
+        }
+        ctx.lineTo(winW, winH);
+        ctx.closePath();
+        ctx.fillStyle = config.seaColor;  // 淡蓝色
+        ctx.fill();
+
+        ctx.beginPath();
+        for (let x = 0; x <= winW; x += 6) {
+            ctx.lineTo(x, getWaveY(x));
+        }
+        ctx.strokeStyle = config.waveBorder;
+        ctx.lineWidth = config.borderWidth;
+        ctx.stroke();
+
+        ctx.font = `${config.charSize}px monospace`;
+        ctx.textAlign = "center";
+
+        wordTick++;
+        const words = charPool.split(',');
+        if (wordTick >= config.wordRefreshRate) {
+            lastWord = words[Math.floor(Math.random() * words.length)];
+            wordTick = 0;
+        }
+
+        colList.forEach(col => {
+            let waveTop = getWaveY(col.x);
+            let colFloat = Math.sin(time * col.floatSpeed + col.swayOff) * 5;
+            let baseStartY = waveTop + colFloat;
+
+            for (let i = 0; i < col.len; i++) {
+                let charY = baseStartY + i * config.charLineGap;
+                if(charY > winH) break;
+                let alpha = Math.min(1, (i / col.len) * config.alphaGradient + 0.5);
+                ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+                ctx.fillText(lastWord, col.x, charY);
+            }
+        });
+
+        requestAnimationFrame(drawScene);
+    }
+
+    window.addEventListener('resize', () => {
+        winW = innerWidth;
+        winH = innerHeight;
+        canvas.width = winW;
+        canvas.height = winH;
+        waveBaseY = winH * config.initWaveRatio;
+        targetWaveY = waveBaseY;
+        initColumn();
+    });
+
+    initColumn();
+    initAudio();
+    drawScene();
+</script>
+</body>
+</html>
